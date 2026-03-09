@@ -18,6 +18,7 @@ const PLATFORM_EMOJI: Record<QuestionRecord['platform'], string> = {
   chatgpt: '🤖',
   claude: '🟠',
   deepseek: '🔵',
+  copilot: '🐙',
   unknown: '❓',
 };
 

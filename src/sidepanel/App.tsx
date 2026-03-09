@@ -66,7 +66,7 @@ const App: React.FC = () => {
       <main className="flex-1 overflow-y-auto px-3 py-3">
         {questions.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-500 text-sm text-center px-4">
-            去 ChatGPT / Claude / DeepSeek 开始聊天吧～
+            去 ChatGPT / Claude / DeepSeek / Copilot 开始聊天吧～
           </div>
         ) : (
           <Timeline questions={questions} />
