@@ -4,7 +4,7 @@ export interface QuestionRecord {
   text: string;
   timestamp: number;
   pageUrl: string;
-  platform: 'chatgpt' | 'claude' | 'deepseek' | 'unknown';
+  platform: 'chatgpt' | 'claude' | 'deepseek' | 'copilot' | 'unknown';
 }
 
 // storage 中存储的数据结构

@@ -1,6 +1,6 @@
 /**
  * Content Script
- * 注入到 ChatGPT / Claude / DeepSeek 页面，监听用户消息并上报给 background。
+ * 注入到 ChatGPT / Claude / DeepSeek / GitHub Copilot Chat 页面，监听用户消息并上报给 background。
  */
 
 import { nanoid } from 'nanoid';
@@ -12,10 +12,12 @@ type Platform = QuestionRecord['platform'];
 
 function detectPlatform(urlStr: string): Platform {
   try {
-    const hostname = new URL(urlStr).hostname;
+    const { hostname, pathname } = new URL(urlStr);
     if (hostname === 'chatgpt.com' || hostname.endsWith('.chatgpt.com')) return 'chatgpt';
     if (hostname === 'claude.ai' || hostname.endsWith('.claude.ai')) return 'claude';
     if (hostname === 'chat.deepseek.com' || hostname.endsWith('.chat.deepseek.com')) return 'deepseek';
+    // 仅在 github.com 的 /copilot 路径下才识别为 copilot，避免其他页面误抓
+    if ((hostname === 'github.com' || hostname.endsWith('.github.com')) && (pathname === '/copilot' || pathname.startsWith('/copilot/'))) return 'copilot';
   } catch {
     // URL 解析失败时忽略
   }
@@ -31,6 +33,12 @@ function getSelectors(platform: Platform): string[] {
       return ['[data-testid="human-message"]', '.human-turn'];
     case 'deepseek':
       return ['[class*="user-message"]'];
+    // GitHub Copilot Chat 网页版用户消息选择器（优先尝试 ChatMessage，备选 UserMessage）
+    case 'copilot':
+      return [
+        'div[class*="ChatMessage-module__userMessage"]',
+        'div[class*="UserMessage-module__container"]',
+      ];
     default:
       return [];
   }
