@@ -19,6 +19,7 @@ const PLATFORM_EMOJI: Record<QuestionRecord['platform'], string> = {
   claude: '🟠',
   deepseek: '🔵',
   copilot: '🐙',
+  gemini: '♊',
   unknown: '❓',
 };
 
