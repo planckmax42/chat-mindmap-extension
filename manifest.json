@@ -8,6 +8,7 @@
     "https://chatgpt.com/*",
     "https://claude.ai/*",
     "https://chat.deepseek.com/*",
+    "https://gemini.google.com/*",
     "https://github.com/*"
   ],
   "side_panel": {
@@ -23,6 +24,7 @@
         "https://chatgpt.com/*",
         "https://claude.ai/*",
         "https://chat.deepseek.com/*",
+        "https://gemini.google.com/*",
         "https://github.com/copilot",
         "https://github.com/copilot/*"
       ],

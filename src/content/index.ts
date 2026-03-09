@@ -1,6 +1,6 @@
 /**
  * Content Script
- * 注入到 ChatGPT / Claude / DeepSeek / GitHub Copilot Chat 页面，监听用户消息并上报给 background。
+ * 注入到 ChatGPT / Claude / DeepSeek / Google Gemini / GitHub Copilot Chat 页面，监听用户消息并上报给 background。
  */
 
 import { nanoid } from 'nanoid';
@@ -16,6 +16,7 @@ function detectPlatform(urlStr: string): Platform {
     if (hostname === 'chatgpt.com' || hostname.endsWith('.chatgpt.com')) return 'chatgpt';
     if (hostname === 'claude.ai' || hostname.endsWith('.claude.ai')) return 'claude';
     if (hostname === 'chat.deepseek.com' || hostname.endsWith('.chat.deepseek.com')) return 'deepseek';
+    if (hostname === 'gemini.google.com' || hostname.endsWith('.gemini.google.com')) return 'gemini';
     // 仅在 github.com 的 /copilot 路径下才识别为 copilot，避免其他页面误抓
     if ((hostname === 'github.com' || hostname.endsWith('.github.com')) && (pathname === '/copilot' || pathname.startsWith('/copilot/'))) return 'copilot';
   } catch {
@@ -28,11 +29,17 @@ function detectPlatform(urlStr: string): Platform {
 function getSelectors(platform: Platform): string[] {
   switch (platform) {
     case 'chatgpt':
-      return ['[data-message-author-role="user"]'];
+      return [
+        '[data-message-author-role="user"] .whitespace-pre-wrap',
+        '[data-message-author-role="user"]',
+      ];
     case 'claude':
       return ['[data-testid="human-message"]', '.human-turn'];
     case 'deepseek':
-      return ['[class*="user-message"]'];
+      return ['[class*="user-message"]', '[class*="UserMessage"]'];
+    case 'gemini':
+      // Google Gemini 网页版用户消息选择器
+      return ['user-query .query-text', 'user-query p', '.query-text'];
     // GitHub Copilot Chat 网页版用户消息选择器（优先尝试 ChatMessage，备选 UserMessage）
     case 'copilot':
       return [

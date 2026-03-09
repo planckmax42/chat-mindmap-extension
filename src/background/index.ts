@@ -5,6 +5,9 @@
 
 import type { MessageType, StorageData } from '../types';
 
+// 配置点击扩展图标时自动打开侧边栏
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
+
 // storage 中最多保留的问题数量
 const MAX_QUESTIONS = 50;
 
