@@ -57,5 +57,7 @@ export type MessageType =
   | { type: 'SET_ACTIVE_CONVERSATION'; payload: { pageUrl: string; platform: Platform } }
   | { type: 'CLEAR_ACTIVE_CONVERSATION' }
   | { type: 'GET_ACTIVE_CONVERSATION' }
+  | { type: 'SYNC_ACTIVE_TAB' }
+  | { type: 'FORCE_SCAN' }
   | { type: 'JUMP_TO_QUESTION'; payload: { questionId: string; pageUrl?: string; domSelector?: string } }
   | { type: 'SAVE_LLM_SETTINGS'; payload: LLMSettings };
