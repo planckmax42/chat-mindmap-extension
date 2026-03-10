@@ -119,7 +119,9 @@ function handleUrlChange(): void {
 
 chrome.runtime.onMessage.addListener((message: MessageType) => {
   if (message.type !== 'JUMP_TO_QUESTION') return;
-  const target = document.querySelector(`[data-cm-qid="${message.payload.questionId}"]`);
+  const target =
+    document.querySelector(`[data-cm-qid="${message.payload.questionId}"]`) ??
+    (message.payload.domSelector ? document.querySelector(message.payload.domSelector) : null);
   if (target instanceof HTMLElement) {
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
     target.classList.add('cm-q-highlight');

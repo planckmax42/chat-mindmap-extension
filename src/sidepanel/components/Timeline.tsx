@@ -4,7 +4,7 @@ import QuestionCard from './QuestionCard';
 
 interface Props {
   questions: QuestionRecord[];
-  onJump: (id: string) => void;
+  onJump: (record: QuestionRecord) => void;
 }
 
 const Timeline: React.FC<Props> = ({ questions, onJump }) => {

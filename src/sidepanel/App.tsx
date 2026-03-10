@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { ConversationRoute, LLMSettings, MessageType } from '../types';
+import type { ConversationRoute, LLMSettings, MessageType, QuestionRecord } from '../types';
 import Timeline from './components/Timeline';
 
 const DEFAULT_SETTINGS: LLMSettings = {
@@ -35,7 +35,7 @@ function exportPng(conversation: ConversationRoute): void {
   ctx.font = '16px sans-serif';
   conversation.questions.forEach((q, i) => {
     const y = 90 + i * 50;
-    const prefix = q.relation === 'topic_shift' ? '↺' : q.relation === 'branch' ? '├' : q.relation === 'deepen' ? '↳' : '●';
+    const prefix = q.relation === 'topic_shift' ? '[跳转]' : q.relation === 'branch' ? '[分支]' : q.relation === 'deepen' ? '[深入]' : '[根问题]';
     ctx.fillStyle = q.relation === 'topic_shift' ? '#fca5a5' : '#d1d5db';
     ctx.fillText(`${prefix} ${q.shortTitle ?? q.text.slice(0, 40)}`, 24, y);
   });
@@ -78,8 +78,11 @@ const App: React.FC = () => {
     chrome.runtime.sendMessage(msg).then(() => reload()).catch(() => {});
   };
 
-  const jumpTo = (questionId: string) => {
-    const msg: MessageType = { type: 'JUMP_TO_QUESTION', payload: { questionId } };
+  const jumpTo = (record: QuestionRecord) => {
+    const msg: MessageType = {
+      type: 'JUMP_TO_QUESTION',
+      payload: { questionId: record.id, pageUrl: record.pageUrl, domSelector: record.domSelector },
+    };
     chrome.runtime.sendMessage(msg).catch(() => {});
   };
 
@@ -104,7 +107,7 @@ const App: React.FC = () => {
     <div className="h-screen bg-gray-900 text-gray-100 flex flex-col">
       <header className="px-3 py-2 border-b border-gray-700 bg-gray-950 flex items-center justify-between">
         <div>
-          <h1 className="text-sm font-semibold">💭 Chat MindMap</h1>
+          <h1 className="text-sm font-semibold">Chat MindMap</h1>
           <p className="text-[11px] text-gray-400">支持 ChatGPT / Claude / Gemini / DeepSeek / Copilot</p>
         </div>
         <button className="text-xs text-gray-300" onClick={() => setShowSettings((v) => !v)}>LLM设置</button>
@@ -142,7 +145,7 @@ const App: React.FC = () => {
           <p className="text-[11px] text-gray-400 mb-1">历史会话（本地存储）</p>
           <div className="max-h-20 overflow-y-auto space-y-1">
             {history.map((item) => (
-              <div key={item.id} className="text-[11px] text-gray-300 truncate">• {item.title} ({item.questions.length})</div>
+              <div key={item.id} className="text-[11px] text-gray-300 truncate">{item.title} ({item.questions.length})</div>
             ))}
           </div>
         </div>
