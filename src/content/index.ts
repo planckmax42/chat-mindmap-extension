@@ -118,6 +118,11 @@ function handleUrlChange(): void {
 }
 
 chrome.runtime.onMessage.addListener((message: MessageType) => {
+  if (message.type === 'FORCE_SCAN') {
+    conversationContext();
+    scanMessages();
+    return;
+  }
   if (message.type !== 'JUMP_TO_QUESTION') return;
   const target =
     document.querySelector(`[data-cm-qid="${message.payload.questionId}"]`) ??

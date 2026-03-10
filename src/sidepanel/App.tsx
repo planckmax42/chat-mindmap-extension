@@ -63,6 +63,8 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
+    const syncMsg: MessageType = { type: 'SYNC_ACTIVE_TAB' };
+    chrome.runtime.sendMessage(syncMsg).catch(() => {});
     reload();
     const listener = (changes: { [key: string]: chrome.storage.StorageChange }) => {
       if (changes.conversations || changes.activeConversationId || changes.llmSettings) reload();

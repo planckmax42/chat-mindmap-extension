@@ -3,7 +3,7 @@
   "name": "Chat MindMap",
   "version": "0.1.0",
   "description": "可视化你与AI对话的提问路线，防止迷失在聊天中",
-  "permissions": ["sidePanel", "storage", "activeTab"],
+  "permissions": ["sidePanel", "storage", "activeTab", "scripting"],
   "host_permissions": [
     "https://chatgpt.com/*",
     "https://claude.ai/*",

@@ -215,6 +215,25 @@ chrome.runtime.onMessage.addListener((message: MessageType, _sender, sendRespons
         break;
       }
 
+      case 'SYNC_ACTIVE_TAB': {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab?.id) {
+          const sent = await chrome.tabs.sendMessage(tab.id, { type: 'FORCE_SCAN' } as MessageType)
+            .then(() => true)
+            .catch(() => false);
+
+          if (!sent && tab.url) {
+            await chrome.scripting.executeScript({
+              target: { tabId: tab.id },
+              files: ['content/index.js'],
+            }).catch(() => {});
+            await chrome.tabs.sendMessage(tab.id, { type: 'FORCE_SCAN' } as MessageType).catch(() => {});
+          }
+        }
+        sendResponse({ ok: true });
+        break;
+      }
+
       case 'SAVE_LLM_SETTINGS': {
         await saveStorage({ llmSettings: message.payload });
         sendResponse({ ok: true });
