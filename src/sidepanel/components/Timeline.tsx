@@ -1,45 +1,41 @@
-/**
- * Timeline.tsx
- * 垂直时间线，渲染所有 QuestionCard，并在列表末尾自动滚动。
- */
-
-import React, { useEffect, useRef } from 'react';
+import React, { useMemo } from 'react';
 import type { QuestionRecord } from '../../types';
 import QuestionCard from './QuestionCard';
 
 interface Props {
   questions: QuestionRecord[];
+  onJump: (id: string) => void;
 }
 
-const Timeline: React.FC<Props> = ({ questions }) => {
-  // 哨兵元素，用于滚动到底部
-  const bottomRef = useRef<HTMLDivElement>(null);
+const Timeline: React.FC<Props> = ({ questions, onJump }) => {
+  const flatTree = useMemo(() => {
+    const children = new Map<string | null, QuestionRecord[]>();
+    questions.forEach((q) => {
+      const list = children.get(q.parentId) ?? [];
+      list.push(q);
+      children.set(q.parentId, list);
+    });
 
-  // 每次 questions 长度变化时，滚动到最新一条
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [questions.length]);
+    const result: Array<{ q: QuestionRecord; depth: number }> = [];
+    const walk = (parentId: string | null, depth: number) => {
+      const list = children.get(parentId) ?? [];
+      list.forEach((item) => {
+        result.push({ q: item, depth });
+        walk(item.id, depth + 1);
+      });
+    };
+
+    walk(null, 0);
+    return result;
+  }, [questions]);
+
+  const currentId = questions[questions.length - 1]?.id;
 
   return (
-    <div className="flex flex-col gap-0">
-      {questions.map((q, i) => (
-        <React.Fragment key={q.id}>
-          <QuestionCard
-            record={q}
-            index={i}
-            isFirst={i === 0}
-            isLast={i === questions.length - 1}
-          />
-          {/* 卡片之间的连接竖线（最后一条不需要） */}
-          {i < questions.length - 1 && (
-            <div className="flex justify-center">
-              <div className="w-0.5 h-4 bg-gray-600" />
-            </div>
-          )}
-        </React.Fragment>
+    <div className="py-2">
+      {flatTree.map(({ q, depth }) => (
+        <QuestionCard key={q.id} record={q} depth={depth} isCurrent={q.id === currentId} onJump={onJump} />
       ))}
-      {/* 哨兵元素，滚动定位用 */}
-      <div ref={bottomRef} />
     </div>
   );
 };
