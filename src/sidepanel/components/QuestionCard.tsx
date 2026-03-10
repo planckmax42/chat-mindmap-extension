@@ -1,79 +1,41 @@
-/**
- * QuestionCard.tsx
- * 单条提问记录卡片，支持展开/收起文本。
- */
-
-import React, { useState } from 'react';
+import React from 'react';
 import type { QuestionRecord } from '../../types';
 
 interface Props {
   record: QuestionRecord;
-  index: number;
-  isFirst: boolean;
-  isLast: boolean;
+  depth: number;
+  isCurrent: boolean;
+  onJump: (id: string) => void;
 }
 
-// 各平台对应的 emoji
-const PLATFORM_EMOJI: Record<QuestionRecord['platform'], string> = {
-  chatgpt: '🤖',
-  claude: '🟠',
-  deepseek: '🔵',
-  copilot: '🐙',
-  gemini: '♊',
-  unknown: '❓',
+const RELATION_STYLE: Record<QuestionRecord['relation'], string> = {
+  root: 'border-yellow-400',
+  deepen: 'border-blue-400',
+  branch: 'border-purple-400',
+  topic_shift: 'border-red-400',
 };
 
-// 将 timestamp 格式化为 HH:mm:ss
-function formatTime(timestamp: number): string {
-  const d = new Date(timestamp);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
+const RELATION_TEXT: Record<QuestionRecord['relation'], string> = {
+  root: '根问题',
+  deepen: '深入追问',
+  branch: '同主题分支',
+  topic_shift: '话题跳转',
+};
 
-const QuestionCard: React.FC<Props> = ({ record, index, isFirst, isLast }) => {
-  const [expanded, setExpanded] = useState(false);
-
-  // 根据 isFirst / isLast 决定左边框颜色
-  const borderColor = isFirst
-    ? 'border-yellow-400'
-    : isLast
-    ? 'border-blue-400'
-    : 'border-gray-600';
-
+const QuestionCard: React.FC<Props> = ({ record, depth, isCurrent, onJump }) => {
   return (
-    <div
-      className={`relative bg-gray-800 rounded-lg shadow-md p-3 border-l-4 ${borderColor} cursor-pointer select-none`}
-      onClick={() => setExpanded((prev) => !prev)}
-    >
-      {/* 右上角徽章 */}
-      {isFirst && (
-        <span className="absolute top-2 right-2 text-xs text-yellow-400 font-medium">
-          🏁 原始
-        </span>
-      )}
-      {isLast && !isFirst && (
-        <span className="absolute top-2 right-2 text-xs text-blue-400 font-medium">
-          📍 当前
-        </span>
-      )}
-
-      {/* 序号 + 平台 */}
-      <div className="flex items-center gap-1 mb-1">
-        <span className="text-xs text-gray-400">第 {index + 1} 问</span>
-        <span className="text-xs">{PLATFORM_EMOJI[record.platform]}</span>
+    <div style={{ marginLeft: `${depth * 14}px` }} className="mb-2">
+      <div className={`rounded-md border-l-4 ${RELATION_STYLE[record.relation]} bg-gray-800 p-2`}>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-gray-400">{RELATION_TEXT[record.relation]}</p>
+          {isCurrent && <span className="text-[10px] text-blue-300">当前</span>}
+        </div>
+        <p className="text-sm text-gray-100">{record.shortTitle ?? record.text}</p>
+        {record.deviationWarning && <p className="text-xs text-red-300 mt-1">{record.deviationWarning}</p>}
+        <button className="mt-2 text-xs text-cyan-300 hover:text-cyan-200" onClick={() => onJump(record.id)}>
+          跳转到对话位置
+        </button>
       </div>
-
-      {/* 问题文字 */}
-      <p
-        className={`text-sm text-gray-100 break-words ${
-          expanded ? '' : 'line-clamp-2'
-        }`}
-      >
-        {record.text}
-      </p>
-
-      {/* 时间戳 */}
-      <p className="text-xs text-gray-500 mt-1">{formatTime(record.timestamp)}</p>
     </div>
   );
 };

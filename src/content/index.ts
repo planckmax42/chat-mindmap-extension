@@ -1,14 +1,9 @@
 /**
  * Content Script
- * 注入到 ChatGPT / Claude / DeepSeek / Google Gemini / GitHub Copilot Chat 页面，监听用户消息并上报给 background。
+ * 监听主流 AI 聊天网站中的用户消息，实时发送给 background。
  */
 
-import { nanoid } from 'nanoid';
-import type { QuestionRecord, MessageType } from '../types';
-
-// ---------- 平台判断 ----------
-
-type Platform = QuestionRecord['platform'];
+import type { MessageType, Platform } from '../types';
 
 function detectPlatform(urlStr: string): Platform {
   try {
@@ -17,149 +12,138 @@ function detectPlatform(urlStr: string): Platform {
     if (hostname === 'claude.ai' || hostname.endsWith('.claude.ai')) return 'claude';
     if (hostname === 'chat.deepseek.com' || hostname.endsWith('.chat.deepseek.com')) return 'deepseek';
     if (hostname === 'gemini.google.com' || hostname.endsWith('.gemini.google.com')) return 'gemini';
-    // 仅在 github.com 的 /copilot 路径下才识别为 copilot，避免其他页面误抓
     if ((hostname === 'github.com' || hostname.endsWith('.github.com')) && (pathname === '/copilot' || pathname.startsWith('/copilot/'))) return 'copilot';
   } catch {
-    // URL 解析失败时忽略
+    // ignore
   }
   return 'unknown';
 }
 
-// 根据平台返回用户消息选择器列表（按优先级排序）
 function getSelectors(platform: Platform): string[] {
   switch (platform) {
     case 'chatgpt':
-      return [
-        '[data-message-author-role="user"] .whitespace-pre-wrap',
-        '[data-message-author-role="user"]',
-      ];
+      return ['[data-message-author-role="user"] .whitespace-pre-wrap', '[data-message-author-role="user"]'];
     case 'claude':
       return ['[data-testid="human-message"]', '.human-turn'];
     case 'deepseek':
       return ['[class*="user-message"]', '[class*="UserMessage"]'];
     case 'gemini':
-      // Google Gemini 网页版用户消息选择器
       return ['user-query .query-text', 'user-query p', '.query-text'];
-    // GitHub Copilot Chat 网页版用户消息选择器（优先尝试 ChatMessage，备选 UserMessage）
     case 'copilot':
-      return [
-        'div[class*="ChatMessage-module__userMessage"]',
-        'div[class*="UserMessage-module__container"]',
-      ];
+      return ['div[class*="ChatMessage-module__userMessage"]', 'div[class*="UserMessage-module__container"]'];
     default:
       return [];
   }
 }
 
-// ---------- 状态 ----------
+function elementSelector(el: Element): string | undefined {
+  const id = el.getAttribute('id');
+  if (id) return `#${CSS.escape(id)}`;
+  if (el.hasAttribute('data-testid')) {
+    const testId = el.getAttribute('data-testid');
+    if (testId) return `[data-testid="${CSS.escape(testId)}"]`;
+  }
+  if (el.classList.length > 0) {
+    const className = [...el.classList].slice(0, 2).map((c) => `.${CSS.escape(c)}`).join('');
+    if (className) return `${el.tagName.toLowerCase()}${className}`;
+  }
+  return el.tagName.toLowerCase();
+}
 
 let currentUrl = location.href;
 let platform: Platform = detectPlatform(currentUrl);
-// 记录已发送过的消息文本，避免重复上报
-let sentTexts = new Set<string>();
 let observer: MutationObserver | null = null;
+let sentHash = new Set<string>();
 
-// ---------- 消息发送 ----------
-
-function sendAddQuestion(text: string): void {
-  const record: QuestionRecord = {
-    id: nanoid(),
-    text,
-    timestamp: Date.now(),
-    pageUrl: location.href,
-    platform,
+function conversationContext(): void {
+  const msg: MessageType = {
+    type: 'SET_ACTIVE_CONVERSATION',
+    payload: { pageUrl: location.href, platform },
   };
-  const msg: MessageType = { type: 'ADD_QUESTION', payload: record };
-  chrome.runtime.sendMessage(msg).catch(() => {
-    // background 未就绪时忽略错误
-  });
-}
-
-function sendClearQuestions(): void {
-  const msg: MessageType = { type: 'CLEAR_QUESTIONS' };
   chrome.runtime.sendMessage(msg).catch(() => {});
 }
 
-// ---------- DOM 扫描 ----------
+async function sendQuestion(el: Element, text: string): Promise<void> {
+  const domSelector = elementSelector(el);
+  const payload: MessageType = {
+    type: 'ADD_QUESTION',
+    payload: {
+      text,
+      pageUrl: location.href,
+      platform,
+      domSelector,
+    },
+  };
+  chrome.runtime.sendMessage(payload).then((resp: { questionId?: string } | undefined) => {
+    if (resp?.questionId) {
+      el.setAttribute('data-cm-qid', resp.questionId);
+    }
+  }).catch(() => {});
+}
 
 function scanMessages(): void {
   const selectors = getSelectors(platform);
-  if (selectors.length === 0) return;
-
-  // 找到第一个有匹配元素的选择器
-  let elements: NodeListOf<Element> | null = null;
   for (const selector of selectors) {
-    const found = document.querySelectorAll(selector);
-    if (found.length > 0) {
-      elements = found;
-      break;
-    }
-  }
+    const elements = document.querySelectorAll(selector);
+    if (!elements.length) continue;
 
-  if (!elements) {
-    console.warn('[Chat MindMap] 未找到用户消息元素，选择器：', selectors);
+    elements.forEach((el, index) => {
+      const text = el.textContent?.trim();
+      if (!text) return;
+      const hash = `${selector}:${index}:${text}`;
+      if (sentHash.has(hash)) return;
+      sentHash.add(hash);
+      void sendQuestion(el, text);
+    });
+
     return;
   }
-
-  elements.forEach((el) => {
-    const text = el.textContent?.trim();
-    if (text && !sentTexts.has(text)) {
-      sentTexts.add(text);
-      sendAddQuestion(text);
-    }
-  });
 }
 
-// ---------- MutationObserver ----------
-
 function startObserver(): void {
-  if (observer) {
-    observer.disconnect();
-  }
-
-  observer = new MutationObserver(() => {
-    scanMessages();
-  });
-
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-  });
-
-  // 初始扫描（页面已有内容）
+  observer?.disconnect();
+  observer = new MutationObserver(() => scanMessages());
+  observer.observe(document.body, { childList: true, subtree: true });
   scanMessages();
 }
 
-// ---------- SPA 路由监听 ----------
-
 function handleUrlChange(): void {
   const newUrl = location.href;
-  if (newUrl !== currentUrl) {
-    currentUrl = newUrl;
-    platform = detectPlatform(currentUrl);
-    sentTexts = new Set<string>();
-    sendClearQuestions();
-    // 重新启动 observer
-    startObserver();
-  }
+  if (newUrl === currentUrl) return;
+  currentUrl = newUrl;
+  platform = detectPlatform(newUrl);
+  sentHash = new Set<string>();
+  conversationContext();
+  startObserver();
 }
 
-// 监听 pushState / replaceState
-const originalPushState = history.pushState.bind(history);
-const originalReplaceState = history.replaceState.bind(history);
+chrome.runtime.onMessage.addListener((message: MessageType) => {
+  if (message.type !== 'JUMP_TO_QUESTION') return;
+  const target = document.querySelector(`[data-cm-qid="${message.payload.questionId}"]`);
+  if (target instanceof HTMLElement) {
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('cm-q-highlight');
+    setTimeout(() => target.classList.remove('cm-q-highlight'), 1200);
+  }
+});
 
+const style = document.createElement('style');
+style.textContent = `
+  .cm-q-highlight { outline: 2px solid #60a5fa !important; border-radius: 8px; transition: outline 0.2s ease; }
+`;
+document.documentElement.appendChild(style);
+
+const oldPush = history.pushState.bind(history);
+const oldReplace = history.replaceState.bind(history);
 history.pushState = function (...args) {
-  originalPushState(...args);
+  oldPush(...args);
   handleUrlChange();
 };
-
 history.replaceState = function (...args) {
-  originalReplaceState(...args);
+  oldReplace(...args);
   handleUrlChange();
 };
-
 window.addEventListener('popstate', handleUrlChange);
 
-// ---------- 启动 ----------
-
+conversationContext();
 startObserver();

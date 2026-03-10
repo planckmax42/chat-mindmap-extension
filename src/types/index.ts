@@ -1,19 +1,61 @@
-// 用户提问记录
+export type Platform =
+  | 'chatgpt'
+  | 'claude'
+  | 'deepseek'
+  | 'copilot'
+  | 'gemini'
+  | 'unknown';
+
+export type RelationType = 'root' | 'deepen' | 'branch' | 'topic_shift';
+
 export interface QuestionRecord {
   id: string;
   text: string;
+  shortTitle?: string;
   timestamp: number;
   pageUrl: string;
-  platform: 'chatgpt' | 'claude' | 'deepseek' | 'copilot' | 'gemini' | 'unknown';
+  platform: Platform;
+  relation: RelationType;
+  parentId: string | null;
+  deviationWarning?: string;
+  domSelector?: string;
 }
 
-// storage 中存储的数据结构
-export interface StorageData {
+export interface ConversationRoute {
+  id: string;
+  title: string;
+  platform: Platform;
+  pageUrl: string;
+  createdAt: number;
+  updatedAt: number;
   questions: QuestionRecord[];
 }
 
-// 插件内部消息类型
+export interface LLMSettings {
+  endpoint: string;
+  apiKey: string;
+  model: string;
+  enabled: boolean;
+}
+
+export interface StorageData {
+  activeConversationId?: string;
+  conversations?: Record<string, ConversationRoute>;
+  llmSettings?: LLMSettings;
+}
+
 export type MessageType =
-  | { type: 'ADD_QUESTION'; payload: QuestionRecord }
-  | { type: 'CLEAR_QUESTIONS' }
-  | { type: 'GET_QUESTIONS' };
+  | {
+      type: 'ADD_QUESTION';
+      payload: {
+        text: string;
+        pageUrl: string;
+        platform: Platform;
+        domSelector?: string;
+      };
+    }
+  | { type: 'SET_ACTIVE_CONVERSATION'; payload: { pageUrl: string; platform: Platform } }
+  | { type: 'CLEAR_ACTIVE_CONVERSATION' }
+  | { type: 'GET_ACTIVE_CONVERSATION' }
+  | { type: 'JUMP_TO_QUESTION'; payload: { questionId: string } }
+  | { type: 'SAVE_LLM_SETTINGS'; payload: LLMSettings };
