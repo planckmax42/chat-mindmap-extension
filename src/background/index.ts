@@ -154,7 +154,7 @@ chrome.runtime.onMessage.addListener((message: MessageType, _sender, sendRespons
         const relation = relationFor(message.payload.text, prev);
         const deviationWarning =
           relation === 'topic_shift' && conversation.questions.length > 0
-            ? '⚠️ 该问题可能偏离初始目标'
+            ? '该问题可能偏离初始目标'
             : undefined;
 
         const shortTitle = (await llmTitle(message.payload.text, storage.llmSettings)) ?? titleFromText(message.payload.text);
@@ -224,7 +224,19 @@ chrome.runtime.onMessage.addListener((message: MessageType, _sender, sendRespons
       case 'JUMP_TO_QUESTION': {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab?.id) {
-          await chrome.tabs.sendMessage(tab.id, message);
+          const tabUrl = tab.url ?? '';
+          const targetUrl = message.payload.pageUrl;
+
+          if (targetUrl && tabUrl !== targetUrl) {
+            await chrome.tabs.update(tab.id, { url: targetUrl });
+            chrome.tabs.onUpdated.addListener(function handleUpdated(updatedTabId, info) {
+              if (updatedTabId !== tab.id || info.status !== 'complete') return;
+              chrome.tabs.onUpdated.removeListener(handleUpdated);
+              void chrome.tabs.sendMessage(tab.id as number, message).catch(() => {});
+            });
+          } else {
+            await chrome.tabs.sendMessage(tab.id, message);
+          }
         }
         sendResponse({ ok: true });
         break;
